@@ -1,0 +1,28 @@
+{
+  "_说明": [
+    "收录表：学校的哪个数据库收录了哪家出版商（或哪本期刊）的全文。脚本拿到一篇文章，先按这张表判断该去哪个库，再去试。",
+    "这一份是起步用的通用表，不代表任何一所学校：出版商有自己平台的先去它的平台，经管类期刊再查 EBSCO。",
+    "自己学校实测出来的表放在 ~/.litdl/holdings.json，格式相同，只写和这里不一样的条目就行，它会盖过这一份。",
+    "bucket：按出版商（DOI 前缀分出的桶）。journal：按期刊全称，写了就盖过 bucket，例如 \"Journal of Xxx\": [\"ebsco\"]。值是配方名，按先后顺序试。",
+    "journal 里只写实测过多篇、结果一致的；一两篇的结果不够下结论。wiley / elsevier 两个配方只对各自出版商的 DOI 有效。",
+    "配方名：ebsco（EBSCO，经 WebVPN）、wiley / direct / elsevier（出版商，经 WebVPN）、tandf / pubdoi（出版商官网，认校园 IP）。",
+    "某个出版商写成空列表 []：学校没有收录它的库，直接走 Sci-Hub 和公开版本。",
+    "webvpn_hosts：学校的 WebVPN 对某个站点不按“域名里的点换成短横、再加 -443.<vpn>”的常规写法时，在这里写它实际的形式，",
+    "  例如 \"link.springer.com\": \"link-springer-com.{vpn}:443\"。",
+    "scihub：false 时不把 Sci-Hub 排进顺序。"
+  ],
+  "bucket": {
+    "informs": ["ebsco"],
+    "wiley": ["wiley", "ebsco"],
+    "springer": ["direct"],
+    "ieee": ["direct"],
+    "elsevier": ["elsevier"],
+    "tandf": ["tandf", "ebsco"],
+    "emerald": ["pubdoi", "ebsco"],
+    "sage": ["pubdoi", "ebsco"],
+    "other": ["ebsco"]
+  },
+  "journal": {},
+  "webvpn_hosts": {},
+  "scihub": true
+}
