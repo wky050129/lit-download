@@ -90,7 +90,7 @@ LITDL locate <manifest>              # 每篇由哪些库收录、按什么顺�
 
 ```
 LITB open                          # 启动专用 Chrome（已在运行就什么都不做）。一律直连，不走系统代理
-LITB status                        # Chrome 在不在、出口是不是直连、WebVPN 登没登、开着哪些标签页、哪个在等人机验证
+LITB status                        # Chrome 在不在、过验证走哪条路、出口是不是直连、WebVPN 登没登、开着哪些标签页、哪个在等人机验证
 LITB login webvpn --wait 300       # 打开登录页并放到前台，等用户登完
 LITB portal --save                 # 登录后：读门户首页，列出学校开了哪些数据库的入口，记下来
 LITB portal --url <用户说的那一页> --save       # 首页上没有时，读用户指的那一页；用户已经点开了就用 --tab <id>
@@ -315,6 +315,7 @@ LITDL missing <manifest> --write <项目>/00_待手动下载.md
 | `plan`、`fetch`、`login` 一上来就输出 `NEED_USER 还没填学校的 WebVPN 地址` | 第一次用，还没配置 | 问用户学校 WebVPN 门户的网址，`LITDL config --webvpn <域名>` |
 | `fetch` 一上来就停，输出 `NEED_USER 学校 WebVPN 没登录` | 专用 Chrome 里没登录或会话过期 | 登录页已打开，请用户登录后重跑 |
 | `LITDL locate` 的路线里 ✓ ✗ ⏸ 是什么 | ✓ 这个库给了文件；✗ 试过，没有；⏸ 停在人机验证上或出版商没认出学校，还没有定论；什么都没标就是还没试 | — |
+| 换了一台电脑，验证一个都不自动点、全要人点 | 那台电脑的 `websockets` 没装或低于 11 版，或者不在 Windows 上 | `LITB status` 看"过验证"一行，照它说的 `pip install -U websockets`；不在 Windows 上的只能人点 |
 | 结果是 `need_user` | 站点弹了人机验证，脚本没过，等待时间内也没人点 | 告诉用户哪个标签页在等；点完后重跑那几个序号 |
 | Cloudflare 的复选框点中了也不过，转圈后复位 | 挂着自动化时 managed challenge 不放行；出口在海外时更容易弹 | 不重复点（`references/verification.md` 第 5 节）。`LITB status` 看"出口"一行，不是直连就在没有任务时 `LITB quit` 再 `LITB open`，用户重新登录后再试 |
 | 已经是直连，出口仍在海外 | 上游网络（路由器）自己在走代理，本机改不了 | 不去动路由器和系统设置。不经 WebVPN 的站点（出版商官网、知识库、SSRN）多半弹验证，脚本会把这些行改送下一个库；告诉用户哪几行停在了验证上，等换到校园网或手机热点再用 `--via` 回头补。ScienceDirect 的 PDF 页在这种出口下松开浏览器后点得过；别的站点 11-22 起也这样过验证，还没实测 |

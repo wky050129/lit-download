@@ -159,6 +159,7 @@
 | 批量 curl 被权限检查拦下 | 自动模式分类器 | 说明用途，用户放行后再跑 |
 | 用 Bash 工具的后台方式跑 `fetch`，跑到 10 分钟左右被结束 | 后台任务有时长上限；44 篇的 EBSCO 轮要 50 分钟（11-19 下午，另一个会话改用 PowerShell `Start-Process` 才跑完） | `LITB fetch … --detach`，再用 `LITB wait <stage>` 等 |
 | `LITB status` 显示"只点已知复选框" | 没配模型 | 复选框（Cloudflare/reCAPTCHA/hCaptcha）仍会自动点；要点选/滑块再配 `LITDL_CAPTCHA_API_KEY` / `LITDL_CAPTCHA_MODEL`（或 `OPENAI_*`） |
+| 换一台电脑，遇到验证一下都不点，全要人点；用户点过了也记成没通过，`fetch` 输出里有 `读不到验证页的元素：create_connection() got an unexpected keyword argument 'proxy'` | 那台电脑的 `websockets` 是 11–14 版（别的软件早先装的，`pip install` 不会去升级）。脚本连验证页时传的 `proxy=None` 是 15 版才有的参数，连不上就既找不到复选框，也看不出页面过没过（2026-11-23 用 14.2 复现） | 脚本已兼容 11 版以上；`LITB status` 的"过验证"一行报版本。没装或低于 11 版的退回老做法，`pip install -U websockets` |
 | AI 过验证输出 `HTTP 401/404/400` | key 不对、BASE_URL 多了/少了 `/v1`、模型名不存在 | 按报错改 `~/.litdl/.env`；先用 `LITB solve --tab <id>` 单独试，不要在一轮 fetch 里反复撞 |
 | AI 说"没有可识别的验证控件"但页面明显在做验证 | 验证在跨域 iframe 或画布里，截图里看得到但文字抓不到 | 正常现象：直接交人工。不要为了让它认出来去改页面 |
 | Cloudflare 复选框点中了却不过，转圈后复位 | managed challenge 判定会话为自动化（调试端口、新 profile、出口 IP）；2026-11-19 SSRN/T&F/诺丁汉实测 | 不重复点，先刷新一次（经用户同意）；仍不过就交人。交互式 Turnstile 用系统鼠标实测能过（官方测试 key 返回 SUCCESS）；managed challenge 即便系统鼠标点中、光标留在控件上、断开 CDP 25 秒也无 token，说明不是点击问题。11-22 在 ScienceDirect 上查清：点完再断开不够，验证页加载时就不能挂着自动化，Elsevier 配方已改成松开浏览器再开（#60a）；当晚所有站点都改成这样（#60c，待实测）。不改指纹、不换反检测浏览器 |

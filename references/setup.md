@@ -7,15 +7,15 @@
 | 需要什么 | 说明 |
 |---|---|
 | Python 3.10 以上 | 实测用的是 3.14 |
-| `pip install playwright pymupdf openpyxl websockets` | 不需要 `playwright install`，脚本接管本机的浏览器。`websockets` 只给 ScienceDirect 那一步用（见第 4 节末）。只跑 `LITDL arxiv` 的话一个包都不用装 |
+| `pip install -U playwright pymupdf openpyxl websockets` | 不需要 `playwright install`，脚本接管本机的浏览器。`websockets` 用在过人机验证那一步，要 11 版以上（见第 4 节末）；`-U` 是为了把别的软件早先装的旧版一起升上去。只跑 `LITDL arxiv` 的话一个包都不用装 |
 | Chrome 或 Edge | 脚本按常见安装位置找；装在别处时每条 `LITB` 命令加 `--exe <路径>` |
 | curl | 只有备用通道 `LITDL vpnfetch` 用。Windows 10 以上自带 |
-| Windows | 系统鼠标点验证框（`osmouse.py`）只在 Windows 上有；别的系统自动退回浏览器内的点击，其余功能照常 |
+| Windows | 系统鼠标点验证框（`osmouse.py`）只在 Windows 上有；别的系统上脚本一下也不点，遇到验证只松开浏览器、等用户点，其余功能照常 |
 
 检查：
 
 ```
-python -X utf8 -P -c "import fitz, openpyxl, playwright, websockets; print('ok')"
+python -X utf8 -P -c "import fitz, openpyxl, playwright, websockets, websockets.sync.client; print('ok, websockets', websockets.__version__)"
 ```
 
 ## 2. 放在哪
@@ -99,7 +99,7 @@ LITDL_CAPTCHA_MODEL=gpt-4o-mini
 # LITDL_HANDSOFF=0           遇到验证不先松开浏览器（退回挂着浏览器的老做法，见 verification.md 第 4 节）
 ```
 
-`websockets` 包用在过验证那一步：松开浏览器后，靠它读验证页的控件位置、截图（`verification.md` 第 1 节）。没装时脚本自动退回挂着浏览器的老做法。
+`websockets` 包（11 版以上）用在过验证那一步：松开浏览器后，靠它读验证页的控件位置、截图（`verification.md` 第 1 节）。没装或低于 11 版时，脚本自动退回挂着浏览器的老做法，Cloudflare 多半不放行。这台电脑走哪条路，看 `LITB status` 里"过验证"那一行。
 
 key 由用户自己写进这个文件，不要贴在对话里。
 

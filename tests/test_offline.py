@@ -694,6 +694,31 @@ class HandsOff(unittest.TestCase):
             self.assertFalse(litbrowser.handsoff_ok())
         finally:
             del os.environ["LITDL_HANDSOFF"]
+        os.environ["LITDL_HANDSOFF"] = "0"
+        try:
+            self.assertIn("老做法", litbrowser.handsoff_describe())
+        finally:
+            del os.environ["LITDL_HANDSOFF"]
+        self.assertIn("websockets", litbrowser.handsoff_describe())
+
+    def test_an_older_websockets_still_connects(self):
+        # websockets 11-14 have no `proxy` argument: on another computer every verification went to the user (11-23)
+        from unittest import mock
+        import websockets.sync.client
+        calls = []
+
+        def old_connect(url, **kw):
+            calls.append(kw)
+            if "proxy" in kw:
+                raise TypeError("create_connection() got an unexpected keyword argument 'proxy'")
+            return mock.Mock()
+
+        with mock.patch.object(websockets.sync.client, "connect", old_connect):
+            with litbrowser.BareTab("ws://127.0.0.1:1/devtools/page/x") as t:
+                self.assertIsNotNone(t.ws)
+        self.assertEqual(len(calls), 2)
+        self.assertNotIn("proxy", calls[1])
+        self.assertEqual(calls[1]["max_size"], 2 ** 25)
 
     # ---- every verification goes hands off (user, 2026-11-22: "如果遇到验证，都用这个方式过")
     def test_scihubs_robot_page_is_a_verification(self):

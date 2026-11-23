@@ -818,8 +818,12 @@ class BareTab:
 
     def __enter__(self):
         from websockets.sync.client import connect
-        self.ws = connect(self.ws_url, proxy=None, max_size=2 ** 25, open_timeout=5, close_timeout=2)
-        return self
+        opts = {"max_size": 2 ** 25, "open_timeout": 5, "close_timeout": 2}
+        try:                                          # websockets 15+ would otherwise go through the system proxy
+            self.ws = connect(self.ws_url, proxy=None, **opts)
+        except TypeError:                             # 11-14 have no `proxy` (and use none). Seen on another computer
+            self.ws = connect(self.ws_url, **opts)    # (11-23): every verification went to the user, and a page the
+        return self                                   # user had got past was never seen to clear
 
     def send(self, method, params=None):
         self.n += 1
@@ -1041,6 +1045,23 @@ def handsoff_ok():
     except ImportError:
         return False
     return True
+
+
+def handsoff_describe():
+    """One line for `status`: how this computer will get past a verification."""
+    import osmouse
+    if os.environ.get("LITDL_HANDSOFF", "1").strip().lower() in ("0", "off", "false", "no"):
+        return "过验证：LITDL_HANDSOFF=0，挂着浏览器点（老做法，Cloudflare 多半不放行）"
+    try:
+        import websockets
+        import websockets.sync.client  # noqa: F401
+    except ImportError:
+        return ("过验证：没装 websockets 或版本低于 11，退回挂着浏览器的老做法，Cloudflare 多半不放行。"
+                "要装：pip install -U websockets")
+    ver = getattr(websockets, "__version__", "?")
+    if not osmouse.available():
+        return f"过验证：先松开浏览器（websockets {ver}）；不在 Windows 上，脚本不点，等用户点"
+    return f"过验证：先松开浏览器，再用系统鼠标点（websockets {ver}）"
 
 
 def handsoff_fetch(env, url, out, pid, label, limit, judge=None, want="", until_clear=False, replace=""):
@@ -2405,6 +2426,7 @@ def cmd_status(a):
         return 1
     say(f"专用 Chrome：{v.get('Browser')}，端口 {PORT}")
     say(captcha_ai.describe(HOME))
+    say(handsoff_describe())
     with Session(autostart=False) as sess:
         d = chrome_direct(sess)
         say("出口：" + {True: "直连（不走系统代理）", None: "没查出来它启动时带没带 --no-proxy-server",

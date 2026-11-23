@@ -15,7 +15,7 @@
   5. 页面过了验证（标题和页面元素里都没有验证了，隔 4 秒再看一次还是这样），脚本接回浏览器，配方在**这个标签页**上接着做。验证后面直接是文件的，文件落到 `~/.litdl/downloads`，脚本接走，这一篇就算下到。
 - **哪些地方**：所有配方——EBSCO、Wiley、Springer 和 IEEE、Elsevier 的文章页和 PDF 页、T&F 官网、出版商官网（`pubdoi`）、WebVPN 里的出版商（`vpnpub`）、公开版本（知识库、SSRN 等）、Sci-Hub 的机器人确认页——还有 `LITB get`。点了 PDF 链接以后才出来的验证也一样处理。ScienceDirect 的 PDF 页更进一步：读出 View PDF 链接后，不等验证出现就先松开浏览器再打开（`publisher-recipes.md` 第 6 节）。
 - **一篇最多过三次验证**，第四次出现就不再重开，交给用户。
-- **开关**：`LITDL_HANDSOFF=0` 退回挂着浏览器的老做法（第 4 节）。关了自动过验证（`--no-auto-captcha`、`LITDL_CAPTCHA=0`）或者不在 Windows 上时，脚本一下也不点，只松开浏览器、把页面放到前台等用户点。需要 Python 的 `websockets` 包，没装时自动退回老做法。
+- **开关**：`LITDL_HANDSOFF=0` 退回挂着浏览器的老做法（第 4 节）。关了自动过验证（`--no-auto-captcha`、`LITDL_CAPTCHA=0`）或者不在 Windows 上时，脚本一下也不点，只松开浏览器、把页面放到前台等用户点。需要 Python 的 `websockets` 包（11 版以上），没装或版本太低时自动退回老做法。这台电脑走哪条路，`LITB status` 的"过验证"一行写着。
 - **会抢鼠标**：点的时候系统鼠标会移过去，专用 Chrome 会跳到前台。用户正在用电脑（打游戏、开会）时会被打断，所以开始一轮下载前最好跟用户说一声。
 - **只点自己的窗口**：窗口按浏览器进程和标签页标题找，标题对不上不点。用户正在用别的程序时，Windows 常常不让后台程序切前台；这时只有当要点的那个屏幕点上露出来的就是专用 Chrome（没被别的窗口盖住），才照点。Chrome 自己弹的小窗（中文页上的"翻译此页？"）不算挡住。
 - **这一轮跑着的时候，不跑会接上浏览器的命令**：`LITB status`、`shot`、`goto`、`text`、`eval`、`click`、`widgets`、`clickat`、`drag`、`hoverat`、`front`、`close`，以及 `LITA` 的命令。它们一接上，浏览器就又挂着自动化了。不接浏览器的照常用：`LITB tabs`（读调试端口的标签页列表）、`look`、`press`、`solve`，以及只读文件的 `progress`、`wait`、`pause`。
