@@ -93,3 +93,7 @@ $lit-download 把 清单3.txt 里这篇下载到 文献库。这篇我之前在�
 | `tests/test_offline.py` | 离线测试，在仓库根目录运行 `python -X utf8 -m unittest discover -s tests` |
 
 学校 WebVPN 地址等设置存在用户自己的 `~/.litdl/` 里，不在这个仓库里。
+
+## 许可证
+
+MIT，见 `LICENSE`。
