@@ -17,7 +17,7 @@ lit-download 是一个装在 AI Agent（Codex、Claude Code 等）里的技能�
 
 ## 需要准备
 
-- Python 3.10 以上，以及 4 个包：`pip install playwright pymupdf openpyxl websockets`（不需要再运行 `playwright install`，脚本直接用电脑上的 Chrome）；
+- Python 3.10 以上，以及 4 个包：`pip install -U playwright pymupdf openpyxl websockets`（`-U` 会把电脑上已有的旧版一起升级；不需要再运行 `playwright install`，脚本直接用电脑上的 Chrome）；
 - Chrome，装在默认位置即可；
 - 一个支持 skill 的 Agent，比如 Codex 桌面版、Claude Code；
 - 学校 WebVPN 账号。没有的话，只能走 arXiv、开放获取、Sci-Hub 和公开版本。
@@ -92,6 +92,18 @@ $lit-download 把 清单3.txt 里这篇下载到 文献库。这篇我之前在�
 | `tests/test_offline.py` | 离线测试，在仓库根目录运行 `python -X utf8 -m unittest discover -s tests` |
 
 学校 WebVPN 地址等设置存在用户自己的 `~/.litdl/` 里，不在这个仓库里。
+
+## 用到的开源项目
+
+lit-download 没有复制其他项目的代码。运行时用到下面这些开源项目，由用户自己安装，不包含在这个仓库里：
+
+| 项目 | 在 lit-download 里做什么 | 许可证 |
+|---|---|---|
+| [Playwright for Python](https://github.com/microsoft/playwright-python) | 接管专用 Chrome，排队逐篇下载 | Apache-2.0 |
+| [PyMuPDF](https://github.com/pymupdf/PyMuPDF) | 读下到的 PDF，核验题名、DOI 和页数 | AGPL-3.0 或 Artifex 商业许可 |
+| [openpyxl](https://foss.heptapod.net/openpyxl/openpyxl) | 写清单表格 `manifest.xlsx` | MIT |
+| [websockets](https://github.com/python-websockets/websockets) | 遇到人机验证、松开浏览器后，读验证页 | BSD-3-Clause |
+| [scansci-pdf](https://github.com/Rimagination/scansci-pdf)（可选） | 下载通道之一，小批量下开放获取文章；备用通道 `vpnfetch` 也能用它保存的 WebVPN 登录 | MIT |
 
 ## 许可证
 
