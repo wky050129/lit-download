@@ -618,6 +618,16 @@ JS_PDF_LINKS = r"""() => {
 }"""
 
 
+def doc_status(page):
+    """HTTP status of the document the tab shows now (Navigation Timing), or None when the browser does not say."""
+    try:
+        s = page.evaluate("() => { const n = performance.getEntriesByType('navigation')[0];"
+                          " return (n && n.responseStatus) || null; }")
+        return int(s) if s else None
+    except Exception:
+        return None
+
+
 def nav_fetch(env, page, url, out, timeout, hops=2, label="人机验证"):
     """Open `url` like a reader would. A PDF arrives as a browser download (the profile is set to download PDFs);
     a landing page is searched for its PDF link (citation_pdf_url, then scored <a> links) and that link is followed.
@@ -679,7 +689,9 @@ def nav_fetch(env, page, url, out, timeout, hops=2, label="人机验证"):
                 return {"outcome": "no_access", "detail": f"落地页能开，文件限制访问（多为限校内或禁发期）：{st['title'][:40]}"}
             if st["blocked"]:
                 return {"outcome": "blocked", "detail": f"页面提示被限制访问：{st['title'][:40]}"}
-            if status in THROTTLE:
+            if status in THROTTLE and doc_status(view) in (*THROTTLE, None):
+                # judged by the page showing now: a Cloudflare check answers 403 and often clears itself within the
+                # wait above, and the article that loads after it is not a throttle (2026-11-23, INFORMS)
                 return {"outcome": "throttle", "detail": f"HTTP {status}"}
             if hop == hops:
                 break

@@ -15,6 +15,7 @@
 | 截断检查（缺 `%%EOF`、0 页） | 已测 |
 | 认出 Cloudflare 验证页、停下、放到前台、超时后记"等用户点" | 已测（Cardiff ORCA、CityU、SSRN、Nottingham、tandfonline 开放页）。用户点完之后 Cardiff、CityU、SSRN 放行了；ScienceDirect 的 PDF 页当时没放行，11-22 改成松开浏览器再点后放行了（见`publisher-recipes.md` 第 6 节） |
 | 429 被限流时拉长间隔 | 已测（MIT DSpace） |
+| Cloudflare 检查先回 403、几秒内自己放行时不记成被限流（11-23） | 已测：INFORMS 官网第一次请求回 403（`cf-mitigated: challenge`），12 秒内自己放行、文章页出来了，修之前记成了 `throttle`；改成看现在这一页的状态码（`doc_status`）后，200 和 404 都读得对 |
 | 排队、进度文件、防并发、暂停（含等待间隔里立即停）、续跑 | 已测 |
 | 没登录时 `fetch` 不发请求、打开登录页 | 已测 |
 | 登录后的会话判断、`login --wait` 等到登录成功 | 已测 |
@@ -27,7 +28,7 @@
 | 通用出版商 DOI 配方（`pubdoi`） | 已测 Emerald、SAGE 各 1 篇：页面能开，没有 PDF 链接（学校没有 IP 授权），结果 `no_link` |
 | 过验证：所有站点先松开浏览器再过（`get_past`，11-22 晚写好） | 部分已测（11-22 晚，海外出口）：ScienceDirect 一篇点 2 次、39 秒下到；SSRN 摘要页的 Cloudflare 检查点 1 次就过（11-19 挂着浏览器时这一页总要用户点）；INFORMS 官网的检查点 1 次就过；Sci-Hub 机器人页，`look` 认出"不是"按钮、`solve` 用系统鼠标点过去了；过了以后接回浏览器接着做、用完的标签页收掉，都正常。离线测试另覆盖：点两次不过就叫人、松开期间文件到了就收、关了自动过验证就一下不点、一篇最多三次。**还没测**：T&F、EBSCO、Wiley、Springer 上的验证，点了 PDF 链接以后才出来的验证，`press`，视觉模型。第一次碰到先单篇（`--ids`） |
 | 过验证：系统鼠标点复选框 | 已测：Cloudflare 官方强制交互 Turnstile 测试 key 返回 SUCCESS；易盾嵌入式滑块用系统鼠标拖动通过。海外出口下的 managed challenge 挂着浏览器点中也不过；ScienceDirect 的 PDF 页松开浏览器后点得过（11-22，见`publisher-recipes.md` 第 6 节和 `verification.md`） |
-| 过验证：用户同意后置顶专用 Chrome 再点（`--raise-window`，11-23） | 部分已测：离线测试覆盖了没同意不置顶、同意后验证页一出来置顶一次、处理完放下、置顶后仍被另一个置顶窗口挡着就不点；`SetWindowPos` 置顶和放下在一个屏幕外的测试窗口上实测过。**还没在真实验证页上测**，第一次用先单篇（`--ids`） |
+| 过验证：用户同意后置顶专用 Chrome 再点（`--raise-window`，11-23） | 已测（11-23 晚，国内直连出口）：专用 Chrome 先最小化，再 `LITB get` 一篇 Sci-Hub，机器人确认页出来后窗口置顶，系统鼠标点"不是"一次就过，接回浏览器接着做，处理完窗口不再置顶。离线测试另覆盖：没同意不置顶、置顶后仍被另一个置顶窗口挡着就不点。Cloudflare 复选框上还没测。同一轮发现：`get` 开 Sci-Hub 的 PDF 文件本身时 Chrome 两次报 `Download.save_as: canceled`，同一篇走 `fetch --via scihub`（先在页面里取文件）20 秒下到 1.8 MB，原因还没查 |
 | 扫描件（没有文字层）`ingest --force` 入库 | 已测：文件名是 `<序号>.pdf`、首页渲染出来核对过，才放行 |
 | 科研通应助（`ablesci_assist.py` 的前身，临时脚本） | 11-19 晚实测上传 5 篇，1 篇当场被采纳（见本文件第 6 节）。整理成 `ablesci_assist.py` 以后的状态也在那里 |
 | SSRN（`--via public`，摘要页的 `citation_pdf_url` 指向 `Delivery.cfm`） | 已测：用户点过验证后连着下到 8 篇，每篇 18–37 秒；第 9、10 篇返回 403；80 分钟后单篇试探又回到验证页。脚本现在对 SSRN 间隔 30 秒、一小时最多 6 篇（`publisher-recipes.md` 第 9 节） |

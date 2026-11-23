@@ -678,6 +678,23 @@ class HandsOff(unittest.TestCase):
         for sub in ("fetch", "get", "solve", "press"):
             self.assertIn("--raise-window", run("litbrowser.py", sub, "--help")[1], sub)
 
+    def test_a_check_that_cleared_itself_is_not_a_throttle(self):
+        # 11-23 INFORMS: the first response was Cloudflare's 403, the check cleared itself within the wait and the
+        # article loaded, yet the row was put down as "throttle" from the stale 403. Judge by the page showing now.
+        class Page:
+            def __init__(self, answer):
+                self.answer = answer
+
+            def evaluate(self, js):
+                if isinstance(self.answer, Exception):
+                    raise self.answer
+                return self.answer
+        self.assertEqual(litbrowser.doc_status(Page(200)), 200)
+        self.assertEqual(litbrowser.doc_status(Page(429)), 429)
+        self.assertIsNone(litbrowser.doc_status(Page(0)))                 # the browser does not say
+        self.assertIsNone(litbrowser.doc_status(Page(RuntimeError("navigating"))))
+        self.assertNotIn(litbrowser.doc_status(Page(200)), (*litbrowser.THROTTLE, None))
+
     def test_verification_titles(self):
         for t in ("请稍候…", "Just a moment...", "Security verification", "Are you a robot?"):
             self.assertTrue(litbrowser.CHALLENGE_TITLE.search(t), t)
