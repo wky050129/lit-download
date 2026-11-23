@@ -627,6 +627,57 @@ class HandsOff(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             osmouse.css_to_screen(0, 0, 100, 100, 0, 0, 1, 1)
 
+    # ---- a covered window (another computer, the agent's window on top, 11-23): put on top only with the user's yes
+    def _covered_point(self, allowed, on_top_after=True):
+        from unittest import mock
+        import osmouse
+        seen, raised = iter([False, on_top_after]), []
+        with mock.patch.object(osmouse, "IS_WIN", True), \
+                mock.patch.object(osmouse, "_focus", lambda h: False), \
+                mock.patch.object(osmouse, "_client", lambda h: (0, 0, 1280, 800)), \
+                mock.patch.object(osmouse, "point_is_on", lambda h, x, y: next(seen)), \
+                mock.patch.object(osmouse, "_user32", mock.Mock(IsIconic=mock.Mock(return_value=0))), \
+                mock.patch.object(osmouse, "_SetWindowPos", lambda *a: raised.append(a[1]) or 1, create=True), \
+                mock.patch.object(osmouse.time, "sleep", lambda s: None):
+            osmouse.allow_raise(allowed)
+            try:
+                return osmouse._screen_point(42, 1280, 700, 100, 50), raised
+            finally:
+                osmouse.allow_raise(False)
+                osmouse._RAISED.clear()
+
+    def test_a_covered_window_is_left_to_the_user_without_consent(self):
+        point, raised = self._covered_point(allowed=False)
+        self.assertIsNone(point)
+        self.assertEqual(raised, [])
+
+    def test_a_covered_window_is_put_on_top_with_consent_then_clicked(self):
+        import osmouse
+        point, raised = self._covered_point(allowed=True)
+        self.assertIsNotNone(point)
+        self.assertEqual(raised, [osmouse.HWND_TOPMOST])
+
+    def test_another_topmost_window_in_the_way_still_means_no_click(self):
+        point, raised = self._covered_point(allowed=True, on_top_after=False)
+        self.assertIsNone(point)
+
+    def test_a_raised_window_is_put_back(self):
+        from unittest import mock
+        import osmouse
+        calls = []
+        with mock.patch.object(osmouse, "_SetWindowPos", lambda *a: calls.append(a[:2]) or 1, create=True):
+            osmouse._RAISED.update({42, 43})
+            osmouse.lower_all()
+        self.assertEqual(sorted(calls), [(42, osmouse.HWND_NOTOPMOST), (43, osmouse.HWND_NOTOPMOST)])
+        self.assertEqual(osmouse._RAISED, set())
+
+    def test_consent_and_refusal_cannot_both_be_given(self):
+        rc, out = run("litbrowser.py", "fetch", "m.json", "--stage", str(TMP / "st"), "--raise-window", "--no-auto-captcha")
+        self.assertEqual(rc, 2)
+        self.assertIn("contradict", out)
+        for sub in ("fetch", "get", "solve", "press"):
+            self.assertIn("--raise-window", run("litbrowser.py", sub, "--help")[1], sub)
+
     def test_verification_titles(self):
         for t in ("请稍候…", "Just a moment...", "Security verification", "Are you a robot?"):
             self.assertTrue(litbrowser.CHALLENGE_TITLE.search(t), t)
@@ -808,12 +859,13 @@ class HandsOff(unittest.TestCase):
         finally:
             del os.environ["LITDL_HANDSOFF"]
 
-    def _run_handsoff(self, title_at, look, clicks_ok=True, human_wait=30, drop_file_at=None, enabled=True):
+    def _run_handsoff(self, title_at, look, clicks_ok=True, human_wait=30, drop_file_at=None, enabled=True,
+                      raise_ok=False):
         """handsoff_fetch against a fake browser and a fake clock: nothing real is opened, clicked or waited for."""
         from unittest import mock
         import captcha_ai
         import osmouse
-        clock, calls = [1000.0], {"clicks": [], "closed": [], "asked": []}
+        clock, calls = [1000.0], {"clicks": [], "closed": [], "asked": [], "raised": [], "lowered": 0}
         d = TMP / "dl-sim"
         d.mkdir(exist_ok=True)
         for f in d.iterdir():
@@ -853,6 +905,9 @@ class HandsOff(unittest.TestCase):
                 mock.patch.object(osmouse, "available", lambda: True), \
                 mock.patch.object(osmouse, "window_for", lambda pid, title="": 42), \
                 mock.patch.object(osmouse, "focus", lambda hwnd: True), \
+                mock.patch.object(osmouse, "raise_allowed", lambda: raise_ok), \
+                mock.patch.object(osmouse, "raise_window", lambda hwnd: calls["raised"].append(hwnd) or True), \
+                mock.patch.object(osmouse, "lower_all", lambda: calls.__setitem__("lowered", calls["lowered"] + 1)), \
                 mock.patch.object(osmouse, "click_css", lambda *a, **k: calls["clicks"].append(a[3:5]) or clicks_ok):
             res = litbrowser.handsoff_fetch(env, "https://site.example/doc/1", TMP / "sim.pdf", 1234, "测试验证",
                                             litbrowser.HANDSOFF_LIMIT, until_clear=True, replace="OLD")
@@ -888,6 +943,18 @@ class HandsOff(unittest.TestCase):
         self.assertEqual(calls["clicks"], [])
         self.assertEqual(res["outcome"], "need_user")
         self.assertTrue(calls["asked"])                           # asked at once, with the browser let go
+        self.assertEqual(calls["raised"], [])                     # the user said no: nothing is put on top
+
+    def test_with_consent_the_window_goes_on_top_once_and_comes_down_after(self):
+        box = {"kind": "turnstile", "x": 0, "y": 0, "w": 300, "h": 65}
+        res, calls = self._run_handsoff(
+            lambda t: "Just a moment..." if t < 15 else "A Paper - Publisher",
+            lambda t: ([box], 1280, 700, "") if t < 15 else ([], 1280, 700, "Abstract " * 500), raise_ok=True)
+        self.assertEqual(res["outcome"], "passed")
+        self.assertEqual(calls["raised"], [42])                   # once, as soon as the verification showed
+        self.assertEqual(calls["lowered"], 1)                     # and put back when the page was done
+        res, calls = self._run_handsoff(lambda t: "Just a moment...", lambda t: ([box], 1280, 700, ""))
+        self.assertEqual(calls["raised"], [])                     # no consent given: never raised
 
 
 class Docs(unittest.TestCase):

@@ -16,8 +16,9 @@
 - **哪些地方**：所有配方——EBSCO、Wiley、Springer 和 IEEE、Elsevier 的文章页和 PDF 页、T&F 官网、出版商官网（`pubdoi`）、WebVPN 里的出版商（`vpnpub`）、公开版本（知识库、SSRN 等）、Sci-Hub 的机器人确认页——还有 `LITB get`。点了 PDF 链接以后才出来的验证也一样处理。ScienceDirect 的 PDF 页更进一步：读出 View PDF 链接后，不等验证出现就先松开浏览器再打开（`publisher-recipes.md` 第 6 节）。
 - **一篇最多过三次验证**，第四次出现就不再重开，交给用户。
 - **开关**：`LITDL_HANDSOFF=0` 退回挂着浏览器的老做法（第 4 节）。关了自动过验证（`--no-auto-captcha`、`LITDL_CAPTCHA=0`）或者不在 Windows 上时，脚本一下也不点，只松开浏览器、把页面放到前台等用户点。需要 Python 的 `websockets` 包（11 版以上），没装或版本太低时自动退回老做法。这台电脑走哪条路，`LITB status` 的"过验证"一行写着。
-- **会抢鼠标**：点的时候系统鼠标会移过去，专用 Chrome 会跳到前台。用户正在用电脑（打游戏、开会）时会被打断，所以开始一轮下载前最好跟用户说一声。
-- **只点自己的窗口**：窗口按浏览器进程和标签页标题找，标题对不上不点。用户正在用别的程序时，Windows 常常不让后台程序切前台；这时只有当要点的那个屏幕点上露出来的就是专用 Chrome（没被别的窗口盖住），才照点。Chrome 自己弹的小窗（中文页上的"翻译此页？"）不算挡住。
+- **会抢鼠标**：点的时候系统鼠标会移过去，专用 Chrome 会跳到前台。用户正在用电脑（打游戏、开会）时会被打断，所以第一次跑之前要告诉用户、问一次能不能置顶（SKILL.md 第 0 节）。
+- **只点自己的窗口**：窗口按浏览器进程和标签页标题找，标题对不上不点。用户正在用别的程序时（最常见的是用户盯着 Agent 自己的窗口），Windows 常常不让后台程序切前台；这时只有当要点的那个屏幕点上露出来的就是专用 Chrome（没被别的窗口盖住），才照点。Chrome 自己弹的小窗（中文页上的"翻译此页？"）不算挡住。
+- **用户同意置顶时（`--raise-window`）**：验证页一出来，就把专用 Chrome 设成置顶窗口（不抢键盘焦点），页面在最前面渲染、等够时间再点；这一页处理完（过了、下到文件、交给用户、超时）就放下，脚本退出时也一定放下。置顶以后要点的点上露出来的仍不是专用 Chrome（被另一个置顶窗口挡着），照样不点。用户不同意时用 `--no-auto-captcha`，一下也不点，全由用户点。2026-11-23 在别人的电脑上测，验证全交给了人，原因之一就是 Agent 的窗口盖着专用 Chrome。
 - **这一轮跑着的时候，不跑会接上浏览器的命令**：`LITB status`、`shot`、`goto`、`text`、`eval`、`click`、`widgets`、`clickat`、`drag`、`hoverat`、`front`、`close`，以及 `LITA` 的命令。它们一接上，浏览器就又挂着自动化了。不接浏览器的照常用：`LITB tabs`（读调试端口的标签页列表）、`look`、`press`、`solve`，以及只读文件的 `progress`、`wait`、`pause`。
 - **只认这一篇的文件**：松开期间，下载文件夹里新出现的文件才算；ScienceDirect 只认文件名带这篇 PII 的（`1-s2.0-<PII>-main.pdf`）。文件很大、到时限还在下时，等待会顺延（最多多等 10 分钟），不报成验证没过。
 - **实测情况**：ScienceDirect 的 PDF 页 11-22 实测过（11 篇）。推广到所有站点后，11-22 晚实测了 ScienceDirect、SSRN、INFORMS 官网的 Cloudflare 检查和 Sci-Hub 的机器人页，都过了；T&F、EBSCO、Wiley、Springer 上的还没碰到（`test-log.md` 第 1 节）。
@@ -39,7 +40,8 @@
 ```
 LITB status                          # 最后一行显示 AI 过验证是开是关
 LITB solve --tab <id>                # 对某个正在等人的标签页手动试一次（不接浏览器）
-LITB fetch … --no-auto-captcha       # 这一轮不点，松开浏览器直接等用户
+LITB fetch … --raise-window          # 用户同意置顶：专用 Chrome 被别的窗口盖住时，先置顶再点，处理完放下
+LITB fetch … --no-auto-captcha       # 用户不同意置顶：这一轮不点，松开浏览器直接等用户
 LITB fetch … --captcha-attempts 2    # 模型每页最多试几次（默认 3，最多 6）
 ```
 

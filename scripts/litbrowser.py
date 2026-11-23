@@ -409,6 +409,14 @@ def wait_human(page, why, seconds, prog=None):
     Everything else - no model, an unrecognised widget, an attempt that failed - falls through to the
     original behaviour: bring the page to the front, tell the user, poll quietly. Account data is
     never typed, read or clicked here."""
+    import osmouse
+    try:
+        return _wait_human(page, why, seconds, prog)
+    finally:
+        osmouse.lower_all()                       # a window put on top for this page (--raise-window) goes back
+
+
+def _wait_human(page, why, seconds, prog):
     try:
         if captcha_ai.solve(page, why, state_fn=page_state, home=HOME, log=say):
             if prog:
@@ -1090,7 +1098,7 @@ def handsoff_fetch(env, url, out, pid, label, limit, judge=None, want="", until_
     url_now, quiet_since, step_clicks, step_acts, ch_since, clear_since = "", t0, 0, 0, None, None
     no_window, model_left = False, (cfg["attempts"] if auto and cfg["ready"] else 0)
     hard_end = t0 + limit + 600                   # a download still being written may run on, but not for ever
-    keep = False
+    keep, raised = False, False
 
     def take(got):
         res = take_download(got[-1], out)
@@ -1138,6 +1146,16 @@ def handsoff_fetch(env, url, out, pid, label, limit, judge=None, want="", until_
                 clear_since = None
                 first_seen = first_seen or now
                 ch_since = ch_since or now
+                if auto and not raised and osmouse.raise_allowed():
+                    raised = True                     # the user agreed: on top now, so the page paints and the
+                    try:                              # settling time below runs with the widget in view
+                        devtools(f"/json/activate/{tid}")
+                        time.sleep(0.4)
+                    except Exception:
+                        pass
+                    hwnd = osmouse.window_for(pid, title)
+                    if hwnd and osmouse.raise_window(hwnd):
+                        say("       专用 Chrome 已置顶（用户同意过），这一页处理完再放下")
                 if (auto and not asked and not no_window and now - ch_since > HANDSOFF_SETTLE
                         and now - last_click > HANDSOFF_AFTER and ws and (look is not None or now - last_look > 2.5)):
                     if look is None:
@@ -1165,7 +1183,9 @@ def handsoff_fetch(env, url, out, pid, label, limit, judge=None, want="", until_
                         else:
                             seen = [osmouse._window_text(w) for w in osmouse._chrome_windows()
                                     if osmouse._window_pid(w) == pid] if osmouse.available() and pid else []
-                            say(f"       {'专用 Chrome 的窗口切不到前台' if hwnd else '找不到显示这一页的专用 Chrome 窗口'}，不点，交给用户（找的是 {title[:30]!r}，"
+                            why = ("专用 Chrome 被别的窗口盖着、切不到前台" + ("" if osmouse.raise_allowed() else
+                                   "（用户没同意置顶，见 --raise-window）")) if hwnd else "找不到显示这一页的专用 Chrome 窗口"
+                            say(f"       {why}，不点，交给用户（找的是 {title[:30]!r}，"
                                 f"专用 Chrome 的窗口：{[s_[:40] for s_ in seen]}，前台是 {osmouse.foreground_text()[:40]!r}）")
                             no_window = True
                     elif not hits and model_left and vw and vh and now - ch_since > 8:
@@ -1216,6 +1236,7 @@ def handsoff_fetch(env, url, out, pid, label, limit, judge=None, want="", until_
             return {"outcome": "error", "detail": f"{label}：重新打开的页面 {round(time.time() - t0)} 秒没打开完"}
         return {"outcome": "error", "detail": f"打开 PDF 链接 {round(time.time() - t0)} 秒没有下载开始"}
     finally:
+        osmouse.lower_all()                       # put back on top only for as long as this page was handled
         if asked and env.prog:
             env.prog.need_user(None, None)
         if not keep:
@@ -2278,7 +2299,9 @@ def cmd_solve(a):
     if hits:
         x, y = hit_point(hits[0])
         ok = bool(hwnd) and osmouse.click_css(hwnd, vw, vh, x, y)
-        say(f"{hits[0]['kind']}：系统鼠标点 ({x:.0f},{y:.0f})" if ok else "专用 Chrome 的窗口切不到前台，没点")
+        say(f"{hits[0]['kind']}：系统鼠标点 ({x:.0f},{y:.0f})" if ok else
+            "专用 Chrome 被别的窗口盖着、切不到前台，没点" + ("" if osmouse.raise_allowed() else
+                                                     "（用户同意置顶的话加 --raise-window）"))
     elif cfg["ready"]:
         ok = handsoff_model(tid, ws, pid, title, t.get("url"), look, cfg)
     else:
@@ -2344,7 +2367,8 @@ def cmd_press(a):
     else:
         ok, what = osmouse.click_css(hwnd, vw, vh, a.x, a.y), f"点 ({a.x},{a.y})"
     if not ok:
-        say("专用 Chrome 切不到前台，那个位置也被别的窗口盖着：没做")
+        say("专用 Chrome 切不到前台，那个位置也被别的窗口盖着：没做" + ("" if osmouse.raise_allowed() else
+                                                         "（用户同意置顶的话加 --raise-window）"))
         return 1
     time.sleep(a.wait)
     info = tab_info(t["id"]) or {}
@@ -2880,15 +2904,22 @@ def main():
                            help="school WebVPN host (default: what `litdl.py config --webvpn` saved)")
         return p
 
+    def raise_arg(p):
+        p.add_argument("--raise-window", action="store_true",
+                       help="the user agreed: put the dedicated Chrome on top of their windows while a verification "
+                            "page is handled, so the script can click it even under another window (lowered again "
+                            "afterwards). Without it a covered window is left to the user")
+
     def captcha_args(p):
         g = p.add_mutually_exclusive_group()
         g.add_argument("--auto-captcha", dest="auto_captcha", action="store_true", default=None,
                        help="try the vision model on click/slider widgets before asking the user "
                             "(default: on when a key is configured)")
         g.add_argument("--no-auto-captcha", dest="auto_captcha", action="store_false",
-                       help="always stop and ask the user")
+                       help="never click: let go of the browser and ask the user (the user declined --raise-window)")
         p.add_argument("--captcha-attempts", type=int,
                        help="model attempts per verification (default 3, max 6)")
+        raise_arg(p)
 
     p = sp.add_parser("open", help="start the dedicated Chrome")
     p.add_argument("--url", action="append", help="also open this page (repeatable)")
@@ -2947,6 +2978,7 @@ def main():
                                     "Sci-Hub's button with the system mouse, else the vision model")
     p.add_argument("--tab", required=True)
     p.add_argument("--attempts", type=int, help="override LITDL_CAPTCHA_ATTEMPTS for this run")
+    raise_arg(p)
     p = sp.add_parser("look", help="what a tab shows, nothing attached: title, verification controls, text; "
                                    "--out saves a screenshot. Use this on verification pages, not shot / widgets")
     p.add_argument("--tab", required=True)
@@ -2962,6 +2994,7 @@ def main():
     p.add_argument("--hover", action="store_true", help="only move the cursor there")
     p.add_argument("--duration", type=float, help="seconds for a drag")
     p.add_argument("--wait", type=float, default=3, help="seconds before reading the tab's title again")
+    raise_arg(p)
 
     p = sp.add_parser("progress", help="progress of a fetch")
     p.add_argument("stage")
@@ -3044,6 +3077,12 @@ def main():
         CHROME_DIRECT = True
     if a.cmd == "click" and not (a.selector or a.text):
         ap.error("click needs --selector or --text")
+    if getattr(a, "raise_window", False):
+        if getattr(a, "auto_captcha", None) is False:
+            ap.error("--raise-window and --no-auto-captcha contradict each other: the user either agreed to have the "
+                     "window put on top (the script clicks) or did not (the user clicks)")
+        import osmouse
+        osmouse.allow_raise(True)
     if getattr(a, "auto_captcha", None) is not None:
         captcha_ai.set_enabled(a.auto_captcha)
     if getattr(a, "captcha_attempts", None):

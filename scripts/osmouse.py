@@ -17,7 +17,13 @@ Everything fails closed: if the window cannot be found, focused, or the viewport
 callers get False and fall back to Playwright's mouse.
 
 Only Windows. `LITDL_CAPTCHA_OS_MOUSE=0` turns the caller-side use off.
+
+Putting the window on top (`--raise-window`, only when the user agreed, 2026-11-23): Windows does not let a
+background process take the foreground while the user works in another window (the agent's own window, typically),
+and a point under another window is not clicked. With the user's consent the dedicated Chrome is made a topmost
+window for as long as a verification page is being handled, then put back (`lower_all`, also at exit).
 """
+import atexit
 import ctypes
 import math
 import os
@@ -30,6 +36,10 @@ IS_WIN = os.name == "nt"
 MOUSEEVENTF_LEFTDOWN = 0x0002
 MOUSEEVENTF_LEFTUP = 0x0004
 SW_RESTORE = 9
+SW_SHOWNOACTIVATE = 4
+HWND_TOPMOST, HWND_NOTOPMOST = -1, -2
+SWP_NOSIZE, SWP_NOMOVE, SWP_NOACTIVATE, SWP_SHOWWINDOW = 0x0001, 0x0002, 0x0010, 0x0040
+GWL_EXSTYLE, WS_EX_TOPMOST = -20, 0x00000008
 
 
 class _RECT(ctypes.Structure):
@@ -51,10 +61,56 @@ if IS_WIN:
         except Exception:
             pass
     _EnumProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    _SetWindowPos = _user32.SetWindowPos             # HWND_TOPMOST is -1: pointer-sized arguments, not C ints
+    _SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+                              wintypes.UINT]
+    _SetWindowPos.restype = wintypes.BOOL
+
+_RAISE = {"allowed": False}
+_RAISED = set()
 
 
 def available():
     return IS_WIN
+
+
+def allow_raise(on=True):
+    """The user agreed (for this run) that the dedicated Chrome may be put on top of their windows at a verification."""
+    _RAISE["allowed"] = bool(on)
+
+
+def raise_allowed():
+    return _RAISE["allowed"]
+
+
+def raise_window(hwnd):
+    """Make the dedicated Chrome window topmost, without taking the keyboard focus. Only when allowed; undone by
+    lower_all. True when the window is now topmost."""
+    if not (IS_WIN and hwnd and _RAISE["allowed"]):
+        return False
+    if _user32.IsIconic(hwnd):
+        _user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+    ok = _SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW)
+    if ok:
+        _RAISED.add(hwnd)
+    return bool(ok)
+
+
+def lower_all():
+    """Put every window raise_window made topmost back among the ordinary windows (it stays where it is on screen)."""
+    for hwnd in list(_RAISED):
+        try:
+            _SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE)
+        except Exception:
+            pass
+        _RAISED.discard(hwnd)
+
+
+def is_topmost(hwnd):
+    return bool(IS_WIN and hwnd and _user32.GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST)
+
+
+atexit.register(lower_all)                           # never leave the user's screen with a window stuck on top
 
 
 def _class_name(hwnd):
@@ -147,7 +203,7 @@ def _pick_window(page):
         match = windows[0] if len(windows) == 1 else None
     if match is None:
         return None
-    return match if _focus(match) else None
+    return match if (_focus(match) or raise_window(match)) else None
 
 
 VK_MENU = 0x12
@@ -265,7 +321,7 @@ def click(page, x, y, restore=True):
     if not IS_WIN:
         return False
     hwnd = _pick_window(page)
-    if not hwnd or not _focus(hwnd):
+    if not hwnd or not (_focus(hwnd) or hwnd in _RAISED):
         return False
     sx, sy = _to_screen(page, hwnd, x, y)
     old = _cursor()
@@ -285,7 +341,7 @@ def drag(page, x1, y1, x2, y2, duration=0.8, restore=True):
     if not IS_WIN:
         return False
     hwnd = _pick_window(page)
-    if not hwnd or not _focus(hwnd):
+    if not hwnd or not (_focus(hwnd) or hwnd in _RAISED):
         return False
     sx1, sy1 = _to_screen(page, hwnd, x1, y1)
     sx2, sy2 = _to_screen(page, hwnd, x2, y2)
@@ -358,12 +414,17 @@ def _screen_point(hwnd, view_w, view_h, x, y):
     """(sx, sy) of CSS point (x, y), or None when the point may not be clicked.
 
     Windows refuses a background process the foreground while the user is busy elsewhere. Clicking anyway is safe
-    only when the point itself shows this window: the click lands there and brings it forward."""
+    only when the point itself shows this window: the click lands there and brings it forward. When the user has
+    agreed to it, a covered window is first put on top (raise_window)."""
     focused = _focus(hwnd)
     cx, cy, client_w, client_h = _client(hwnd)
     sx, sy = css_to_screen(cx, cy, client_w, client_h, view_w, view_h, x, y)
     if not focused and not point_is_on(hwnd, sx, sy):
-        return None
+        if not raise_window(hwnd):
+            return None
+        time.sleep(0.3)
+        if not point_is_on(hwnd, sx, sy):           # another topmost window is there: still not ours to click
+            return None
     return sx, sy
 
 

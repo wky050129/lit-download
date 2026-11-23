@@ -27,6 +27,7 @@
 | 通用出版商 DOI 配方（`pubdoi`） | 已测 Emerald、SAGE 各 1 篇：页面能开，没有 PDF 链接（学校没有 IP 授权），结果 `no_link` |
 | 过验证：所有站点先松开浏览器再过（`get_past`，11-22 晚写好） | 部分已测（11-22 晚，海外出口）：ScienceDirect 一篇点 2 次、39 秒下到；SSRN 摘要页的 Cloudflare 检查点 1 次就过（11-19 挂着浏览器时这一页总要用户点）；INFORMS 官网的检查点 1 次就过；Sci-Hub 机器人页，`look` 认出"不是"按钮、`solve` 用系统鼠标点过去了；过了以后接回浏览器接着做、用完的标签页收掉，都正常。离线测试另覆盖：点两次不过就叫人、松开期间文件到了就收、关了自动过验证就一下不点、一篇最多三次。**还没测**：T&F、EBSCO、Wiley、Springer 上的验证，点了 PDF 链接以后才出来的验证，`press`，视觉模型。第一次碰到先单篇（`--ids`） |
 | 过验证：系统鼠标点复选框 | 已测：Cloudflare 官方强制交互 Turnstile 测试 key 返回 SUCCESS；易盾嵌入式滑块用系统鼠标拖动通过。海外出口下的 managed challenge 挂着浏览器点中也不过；ScienceDirect 的 PDF 页松开浏览器后点得过（11-22，见`publisher-recipes.md` 第 6 节和 `verification.md`） |
+| 过验证：用户同意后置顶专用 Chrome 再点（`--raise-window`，11-23） | 部分已测：离线测试覆盖了没同意不置顶、同意后验证页一出来置顶一次、处理完放下、置顶后仍被另一个置顶窗口挡着就不点；`SetWindowPos` 置顶和放下在一个屏幕外的测试窗口上实测过。**还没在真实验证页上测**，第一次用先单篇（`--ids`） |
 | 扫描件（没有文字层）`ingest --force` 入库 | 已测：文件名是 `<序号>.pdf`、首页渲染出来核对过，才放行 |
 | 科研通应助（`ablesci_assist.py` 的前身，临时脚本） | 11-19 晚实测上传 5 篇，1 篇当场被采纳（见本文件第 6 节）。整理成 `ablesci_assist.py` 以后的状态也在那里 |
 | SSRN（`--via public`，摘要页的 `citation_pdf_url` 指向 `Delivery.cfm`） | 已测：用户点过验证后连着下到 8 篇，每篇 18–37 秒；第 9、10 篇返回 403；80 分钟后单篇试探又回到验证页。脚本现在对 SSRN 间隔 30 秒、一小时最多 6 篇（`publisher-recipes.md` 第 9 节） |

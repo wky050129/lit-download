@@ -50,7 +50,7 @@ python -X utf8 -P <skill 目录>/scripts/ablesci_assist.py   # LITA：科研通�
 5. `LITDL plan ids.txt --out <manifest> --have <文献库>` 建清单（第 1 节）。
 6. `LITDL locate <manifest>` 看每篇该去哪个库（第 3 节）。
 7. arXiv 的行：`LITDL arxiv <manifest> --stage <stage>`（第 3 节）。
-8. 其余的行一轮一轮来：`LITB fetch <manifest> --stage <stage> --dry-run` 看一眼，再去掉 `--dry-run` 真跑（长的加 `--detach`，用 `LITB wait` 等）；每轮跑完马上 `LITDL ingest <manifest> --src <stage> --dest <文献库> --move`。重复到 `--dry-run` 列不出东西为止；轮到公开版本之前跑一次 `LITDL alts <manifest>`（第 3、5 节）。
+8. 其余的行一轮一轮来。这次对话第一次跑之前，告诉用户会多次遇到人机验证，问能不能把专用 Chrome 置顶：同意就每轮加 `--raise-window`，不同意就加 `--no-auto-captcha`（第 0 节）。`LITB fetch <manifest> --stage <stage> --dry-run` 看一眼，再去掉 `--dry-run` 真跑（长的加 `--detach`，用 `LITB wait` 等）；每轮跑完马上 `LITDL ingest <manifest> --src <stage> --dest <文献库> --move`。重复到 `--dry-run` 列不出东西为止；轮到公开版本之前跑一次 `LITDL alts <manifest>`（第 3、5 节）。
 9. `LITDL missing <manifest> --exhausted` 看还缺什么、哪些算试尽。要去科研通先问用户（第 6 节）。
 10. `LITDL missing <manifest> --write <文件>` 出缺失清单，向用户汇报（第 8 节）。
 
@@ -64,6 +64,10 @@ python -X utf8 -P <skill 目录>/scripts/ablesci_assist.py   # LITA：科研通�
   - 经学校 WebVPN 的库在哪个网络都一样，登录了就能用。
   - 只有认校园 IP 的两个配方（T&F 等出版商官网）和 Elsevier API 要人在校园网，这由脚本从页面上判断（第 3 节），不由我问。
 - **学校订了什么也不用问**，按收录表走（第 3 节）。自带的是一张通用的起步表；这所学校的情况先从门户上读（第 2 节），实测出来的记在 `~/.litdl/holdings.json`，跑的过程中测出新的就补进去。
+- **人机验证出现时，能不能把专用 Chrome 置顶**（用户 2026-11-23 定的："告知用户之后会多次遇到这个验证，告诉用户要置顶这个浏览器，用户同意后就点，不同意就让用户自己点"）。要走浏览器的库（学校的库、Sci-Hub、公开版本、出版商官网）时，第一次跑 `LITB fetch` 之前告诉用户：下载中会多次遇到人机验证；要让脚本自己点，验证一出来就得把专用 Chrome 置顶到所有窗口最前面，会盖住用户正在用的窗口，鼠标也会移过去，这一页处理完再放下来。然后问用户同不同意：
+  - 同意：这次对话里的 `LITB fetch`、`get`、`solve`、`press` 都加 `--raise-window`。
+  - 不同意：`fetch`、`get` 都加 `--no-auto-captcha`，脚本一下也不点；每次停在验证上，我告诉用户是哪个窗口、哪个标签页，请用户自己点，也不用 `solve`、`press` 代点。
+  - 答复在这次对话里一直有效，不每轮重问；用户中途改主意就照新的来。只跑 arXiv（`LITDL arxiv`）的不用问。
 - **存放位置**：项目里的文献目录，或者具体的分类子目录。项目有登记要求的（比如要在主题 README 和 bib 里各加一行），每轮入库后就登记，不攒到最后。
 
 文件命名不用问（文末「命名」）；登录状态不用问，用 `LITB status` 查。有权限、有现成配方的库直接开始下，不逐个请示。
@@ -102,7 +106,7 @@ LITB portal --library --save       # 图书馆的资源列表：已购、试用�
 - **再读图书馆的资源列表**，它常比 WebVPN 首页全，还标出哪些免费、哪些在试用。`LITB portal --library --save` 读这一页，之后 `LITDL locate` 会在每篇下面列出对口的免费或试用资源。**这条路径只对走通过的学校是现成的**：`scripts/schools.json` 里目前只有中国石油大学（华东）一所（WebVPN 首页 → 图书馆 → 馆藏资源 → 免费资源）。别的学校 `--library` 只输出一句提示和 `NEED_USER`，我去问用户资源列表在哪一页，不照搬别的学校的路径去猜；走通以后往 `schools.json` 里加一条。
 - **登录用硬信号判断，在发第一个请求之前查。** `LITB status` 和 `LITB fetch` 都看门户页里有没有退出链接，不以用户口头说的"登好了"为准。没登录时 `fetch` 一个请求都不发，把登录页打开放到前台就停。
 - **每次要用户登录或点验证，页面由我打开并放到前台**，同时告诉用户是哪个窗口、标签页标题是什么。隔了一夜再继续，重新查 `status`。用户正在填账号和验证码时，不开新标签页、不跑别的浏览器命令，免得抢走输入焦点。
-- **人机验证一律先松开浏览器再过**（用户 2026-11-22 定的："如果遇到验证，都用这个方式过，就是松开脚本再过"）。脚本断开 Playwright，在新标签页重开那一页，用系统鼠标点复选框或 Sci-Hub 的"不是"按钮（点选和滑块要配视觉模型；我在场时我当视觉模型，只用 `LITB look` / `LITB press`），过了再接回浏览器接着做。没过就输出 `NEED_USER`，把那一页放到前台，等 `--human-wait` 秒（默认 300），这时用户点的才算数；没人点就把这一篇记成"等用户点人机验证"。`--no-auto-captcha` 或 `LITDL_CAPTCHA=0` 时一下都不点，只松开浏览器等用户。点的时候会抢鼠标、把专用 Chrome 切到前台，开始一轮之前跟用户说一声。**一轮跑着的时候，不跑会接上浏览器的命令**（`status`、`shot`、`goto` 等，清单见 `references/verification.md` 第 1 节）。
+- **人机验证一律先松开浏览器再过**（用户 2026-11-22 定的："如果遇到验证，都用这个方式过，就是松开脚本再过"）。脚本断开 Playwright，在新标签页重开那一页，用系统鼠标点复选框或 Sci-Hub 的"不是"按钮（点选和滑块要配视觉模型；我在场时我当视觉模型，只用 `LITB look` / `LITB press`），过了再接回浏览器接着做。没过就输出 `NEED_USER`，把那一页放到前台，等 `--human-wait` 秒（默认 300），这时用户点的才算数；没人点就把这一篇记成"等用户点人机验证"。`--no-auto-captcha` 或 `LITDL_CAPTCHA=0` 时一下都不点，只松开浏览器等用户。点的时候会抢鼠标；专用 Chrome 被别的窗口盖住时，只有用户同意过置顶（`--raise-window`，第 0 节）才先置顶再点，没同意就交给用户。**一轮跑着的时候，不跑会接上浏览器的命令**（`status`、`shot`、`goto` 等，清单见 `references/verification.md` 第 1 节）。
 - **`--human-wait` 只管等人点验证。** 下载本身另有时限（`--timeout`，不写时按渠道：EBSCO 480 秒，其余 240 秒）。命令执行工具有时长上限（常见 5 分钟）的，单篇试探写 `--human-wait 30`，一轮多篇用 `--detach` 加 `LITB wait`。
 - **`--tab` 的值**是 `LITB status` 或 `LITB tabs` 每行开头那串六位的十六进制 id（比如 `E86816`），也可以写网址或标题里的一段字。`LITB tabs` 不接浏览器，验证页等人时也能用。
 - **专用 Chrome 不要随手关**，关了 WebVPN 登录就掉了。它也可能自己退出（打开某些出版商的 WebVPN 入口时整个浏览器退过）；下一条命令会自动把它重新启动并提示"WebVPN 的登录没了"，看到这句就请用户重新登录，让它退出的那个地址不要再试。`LITB quit` 在有下载任务运行时会拒绝执行。
