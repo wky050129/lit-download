@@ -8,11 +8,10 @@ lit-download 是一个装在 AI Agent（Codex、Claude Code 等）里的技能�
 
 1. **arXiv**：有 arXiv 编号的直接下；
 2. **开放获取的出版商**：Nature、MDPI、PLOS 等标为开放获取的文章；
-3. **学校订的库**：经学校 WebVPN 进 ScienceDirect、Wiley、Springer、IEEE、EBSCO 等；人在校园网时，还能直接从 Taylor & Francis 等出版商官网下；
+3. **学校图书馆**：经学校 WebVPN 进 ScienceDirect、Wiley、Springer、IEEE、EBSCO 等；人在校园网时，还能直接从 Taylor & Francis 等出版商官网下。图书馆资源列表里对口的试用库和免费平台也属于这一类，但它们没有现成的下载脚本，等 Sci-Hub 和公开版本都没有时，Agent 才去手动找；
 4. **Sci-Hub**：有 DOI 的都会试；
 5. **公开版本**：知识库、SSRN、arXiv 上的预印本或录用稿；
-6. **图书馆的免费资源**：图书馆资源列表里对口的平台；
-7. **科研通**：各库都试过仍没有的，花积分发求助，发之前先问用户。
+6. **科研通**：各库都试过仍没有的，花积分发求助，发之前先问用户。
 
 不内置任何学校。第一次用时，Agent 会问学校 WebVPN 门户的网址。用户登录后，它先读一遍门户上有哪些数据库，再决定去哪些库。
 
